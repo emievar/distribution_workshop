@@ -1,7 +1,6 @@
 import pickle
 import random
 import time
-import multiprocessing
 import os
 from multiprocessing import Process, Lock
 from datetime import datetime
@@ -25,17 +24,17 @@ def worker(worker_id, checkpoint_lock): #worker function
     else:
         log_message(worker_id, f"Recovered from checkpoint (task_count={state['task_count']})")
     
-    while state["task_count"] < 10 and not state["completed"]:
+    while state["task_count"] < 10 and not state["completed"]: #changes how many tasks are done by each worker
         try:
             if random.random() < 0.2: # 20% chance of failure
-                raise RuntimeError("Crashed")
+                raise RuntimeError("Process crashed!")
             
             time.sleep(0.5 + random.random())
             
             state["task_count"] += 1
             log_message(worker_id, f"Completed task {state['task_count']}")
             
-            if state["task_count"] % 3 == 0 or state["task_count"] == 10: #saves checkpoint every 3 tasks or at the end
+            if state["task_count"] % 3 == 0: #saves checkpoint every 3 tasks or at the end (can be changed)
                 checkpoint(worker_id, state, checkpoint_lock)
                 
         except Exception as e:
@@ -43,7 +42,7 @@ def worker(worker_id, checkpoint_lock): #worker function
             old_task = state["task_count"]
             state = load_checkpoint(worker_id, checkpoint_lock)
             if state is None:
-                log_message(worker_id, "No checkpoint found, restarting from 0") #restarting message if no checkpoint is found
+                log_message(worker_id, "No checkpoint found. Starting fresh.") #restarting message if no checkpoint is found
                 state = {"worker_id": worker_id, "task_count": 0, "completed": False}
             else:
                 log_message(worker_id, f"Restored progress (lost tasks {old_task} → {state['task_count']})") #restoring message
