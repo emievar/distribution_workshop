@@ -1,0 +1,13 @@
+What are the key differences between a client and a server in socket programming?
+client:
+- user-side of the interface
+- multiple instances can be ran
+- initiates the communications between client and server
+
+server:
+- stays open
+- listens for requests from the client
+- provides resources to the client
+
+How could we modify the server to send custom messages based on client requests?
+The parsed request from the client should be read by the server and through either logical configurations or from a pre-programed database of queries. The response should be sent back to the client.
