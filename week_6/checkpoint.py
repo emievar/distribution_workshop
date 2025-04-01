@@ -9,20 +9,20 @@ CHECKPOINT_FILE = "checkpoint.pkl"
 
 log_lock = Lock() #lock for logging
 
-def log_message(worker_id, message): #logging function
+def log_message(worker_num, message): #logging function
     """logging with timestamp and worker ID."""
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     with log_lock:
-        print(f"[{timestamp}] Worker {worker_id}: {message}")
+        print(f"[{timestamp}] Worker {worker_num}: {message}")
 
-def worker(worker_id, checkpoint_lock): #worker function
+def worker(worker_num, checkpoint_lock): #worker function
     """Worker process with checkpointing and crash recovery."""
-    state = load_checkpoint(worker_id, checkpoint_lock)
+    state = load_checkpoint(worker_num, checkpoint_lock)
     if state is None:
-        state = {"worker_id": worker_id, "task_count": 0, "completed": False}
-        log_message(worker_id, f"Starting fresh (task_count: 0)")
+        state = {"worker_num": worker_num, "task_count": 0, "completed": False}
+        log_message(worker_num, f"Starting fresh (task_count: 0)")
     else:
-        log_message(worker_id, f"Recovered from checkpoint (task_count={state['task_count']})")
+        log_message(worker_num, f"Recovered from checkpoint (task_count={state['task_count']})")
     
     while state["task_count"] < 10 and not state["completed"]: #changes how many tasks are done by each worker
         try:
@@ -32,26 +32,26 @@ def worker(worker_id, checkpoint_lock): #worker function
             time.sleep(0.5 + random.random())
             
             state["task_count"] += 1
-            log_message(worker_id, f"Completed task {state['task_count']}")
+            log_message(worker_num, f"Completed task {state['task_count']}")
             
-            if state["task_count"] % 3 == 0: #saves checkpoint every 3 tasks or at the end (can be changed)
-                checkpoint(worker_id, state, checkpoint_lock)
+            if state["task_count"] % 2 == 0: #saves checkpoint every 3 tasks or at the end (can be changed)
+                checkpoint(worker_num, state, checkpoint_lock)
                 
         except Exception as e:
-            log_message(worker_id, f"{e}")
+            log_message(worker_num, f"{e}")
             old_task = state["task_count"]
-            state = load_checkpoint(worker_id, checkpoint_lock)
+            state = load_checkpoint(worker_num, checkpoint_lock)
             if state is None:
-                log_message(worker_id, "No checkpoint found. Starting fresh.") #restarting message if no checkpoint is found
-                state = {"worker_id": worker_id, "task_count": 0, "completed": False}
+                log_message(worker_num, "No checkpoint found. Starting fresh.") #restarting message if no checkpoint is found
+                state = {"worker_id": worker_num, "task_count": 0, "completed": False}
             else:
-                log_message(worker_id, f"Restored progress (lost tasks {old_task} → {state['task_count']})") #restoring message
+                log_message(worker_num, f"Restored progress (lost tasks {old_task} → {state['task_count']})") #restoring message
             time.sleep(1)  # Small delay before retry
     
     if not state["completed"]:
         state["completed"] = True
-        checkpoint(worker_id, state, checkpoint_lock)
-        log_message(worker_id, "finished")
+        checkpoint(worker_num, state, checkpoint_lock)
+        log_message(worker_num, "finished")
 
 def checkpoint(worker_id, state, lock): #checkpoint function
     """Save state to checkpoint file."""
@@ -92,17 +92,21 @@ def cleanup_checkpoint(): #cleanup function
         print(f"Error cleaning up checkpoint: {e}")
 
 if __name__ == "__main__": #main function
-    cleanup_checkpoint()  #cleans up old checkpoint file 
-    checkpoint_lock = Lock()
+  cleanup_checkpoint()  #cleans up old checkpoint file 
+  checkpoint_lock = Lock()
     
-
-    workers = []
-    for i in range(3): #changes how may workers are created
-        p = Process(target=worker, args=(i, checkpoint_lock))
-        workers.append(p)
-        p.start()
-    
+  workers = []
+  try:
+    for i in range(1,4): #changes how may workers are created
+          p = Process(target=worker, args=(i, checkpoint_lock))
+          workers.append(p)
+          p.start()
+      
     for p in workers:
-        p.join()
-    
+          p.join()
+          
+  finally: 
+    checkpoint_lock.acquire()
+    checkpoint_lock.release()
+      
     print("\n All work done")
